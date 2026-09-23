@@ -1,0 +1,101 @@
+{
+  "manifest_version": 3,
+  "name": "Ad Blogs Bypass",
+  "version": "2.0.0",
+  "description": "Guarda os destinos dos links do encurtador depois que você resolve o captcha.",
+  "minimum_chrome_version": "111",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvOI8zl3zbda7JQrLpDoYei2kjxQ+UHYdOtSicGrWzOKd5Ro6ZJklciWg/wIMC5/1sDAiRbWKl92vMplgP6pE5401g7DSJd2X3HPCX1EXG2fkm0++VwjYZdrOGHdwpXiosTUgtEVZJ06AO91y2YukZndNORjadHL3sWySumcfUDx9SJ2+ODXoLeipx68rsUR+CejH9PChwDdpixnQaQwbldG+NK5Cvmr52hTTJohH0MPrY6t08UwHcHm6WVLafsAsWX++Fj+RhrHqehkGCCv31PNdbFaEPBMA3y3EUeWPUo4WglpkluJTAXu+wxu7pMnla5cw86NfR+Gts/jUM2vcRQIDAQAB",
+  "icons": {
+    "16": "icones/16.png",
+    "32": "icones/32.png",
+    "48": "icones/48.png",
+    "128": "icones/128.png"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Ad Blogs Bypass",
+    "default_icon": {
+      "16": "icones/16.png",
+      "32": "icones/32.png"
+    }
+  },
+  "permissions": [
+    "storage",
+    "nativeMessaging",
+    "declarativeNetRequest"
+  ],
+  "host_permissions": [
+    "https://snet.blog/*",
+    "https://www.snet.blog/*",
+    "https://suaurl.com/*",
+    "https://www.suaurl.com/*",
+    "https://sbio.pro/*",
+    "https://www.sbio.pro/*",
+    "https://pagead2.googlesyndication.com/*",
+    "https://ad-money.net/*",
+    "https://web.telegram.org/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://snet.blog/*",
+        "https://www.snet.blog/*",
+        "https://suaurl.com/*",
+        "https://www.suaurl.com/*",
+        "https://sbio.pro/*",
+        "https://www.sbio.pro/*"
+      ],
+      "js": [
+        "esconde_brave.js",
+        "captura.js"
+      ],
+      "world": "MAIN",
+      "run_at": "document_start",
+      "all_frames": false
+    },
+    {
+      "matches": [
+        "https://snet.blog/*",
+        "https://www.snet.blog/*",
+        "https://suaurl.com/*",
+        "https://www.suaurl.com/*",
+        "https://sbio.pro/*",
+        "https://www.sbio.pro/*"
+      ],
+      "js": [
+        "ponte.js"
+      ],
+      "world": "ISOLATED",
+      "run_at": "document_start",
+      "all_frames": false
+    }
+  ],
+  "declarative_net_request": {
+    "rule_resources": [
+      {
+        "id": "corrente",
+        "enabled": true,
+        "path": "regras.json"
+      }
+    ]
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "stubs/adsbygoogle.js",
+        "stubs/nobetaads.js"
+      ],
+      "matches": [
+        "https://snet.blog/*",
+        "https://www.snet.blog/*",
+        "https://suaurl.com/*",
+        "https://www.suaurl.com/*",
+        "https://sbio.pro/*",
+        "https://www.sbio.pro/*"
+      ]
+    }
+  ]
+}

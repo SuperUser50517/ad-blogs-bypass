@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Ad Blogs Bypass</title>
+<link rel="stylesheet" href="popup.css">
+</head>
+<body>
+<header class="topo">
+  <div class="marca">
+    <span class="logo" aria-hidden="true"></span>
+    <div>
+      <h1>Ad Blogs Bypass</h1>
+      <p id="resumo" class="resumo">Nenhum link</p>
+    </div>
+  </div>
+</header>
+
+<nav class="barra" aria-label="Ações da lista">
+  <button id="abrir-todos" class="acao" type="button" title="Abrir todos os destinos em abas novas">
+    <span class="ico" data-icone="abas"></span><span>Abrir todos</span>
+  </button>
+  <button id="copiar-todos" class="acao" type="button" title="Copiar todos os destinos, um por linha">
+    <span class="ico" data-icone="prancheta"></span><span>Copiar todos</span>
+  </button>
+  <button id="exportar" class="acao" type="button" title="Baixar um .txt com os destinos">
+    <span class="ico" data-icone="baixar"></span><span>Exportar</span>
+  </button>
+  <button id="limpar" class="acao perigo" type="button" title="Apagar todos os itens">
+    <span class="ico" data-icone="lixeira"></span><span>Limpar</span>
+  </button>
+</nav>
+
+<div id="confirmacao" class="confirmacao" hidden>
+  <p>Tem certeza que deseja apagar todos os itens? Esta ação é irreversível.</p>
+  <div class="confirmacao-botoes">
+    <button id="cancelar-limpeza" class="botao-texto" type="button">Cancelar</button>
+    <button id="confirmar-limpeza" class="botao-perigo" type="button">Apagar tudo</button>
+  </div>
+</div>
+
+<main id="lista" class="lista" aria-live="polite"></main>
+
+<section id="vazio" class="vazio" hidden>
+  <span class="vazio-ico" data-icone="caixa"></span>
+  <h2>Nenhum link ainda</h2>
+  <p>Abra um link do encurtador no Brave e resolva o captcha. A aba fecha sozinha e o destino aparece aqui.</p>
+</section>
+
+<div id="aviso" class="aviso" role="status"></div>
+
+<script src="popup.js"></script>
+</body>
+</html>

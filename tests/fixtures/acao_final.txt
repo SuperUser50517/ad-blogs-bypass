@@ -1,0 +1,2 @@
+0:{"a":"$@1","f":"","q":"?wp_post_id=1","i":false,"b":"xNBke4eBqNAWKCiBDEbmG"}
+1:{"ok":true,"destinationUrl":"https://t.me/+ConviteDeExemplo","source":"flow","message":"Destino final carregado.","mini":{"a":6,"b":6}}

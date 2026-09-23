@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+
+# PyInstaller (companion/build.ps1)
+companion/build/
+companion/dist/
+*.spec
+
+# Instaladores gerados
+installer/output/
+
+# Prévia do popup (tools/previa_popup.py)
+tools/previa/
+
+# Gerado pelo Brave ao carregar a extensão sem compactação
+_metadata/
