@@ -258,6 +258,107 @@ def test_percorrer_avisa_o_progresso():
     assert avisos == [(1, 3, "b0.blog"), (2, 3, "b1.blog"), (3, 3, "b2.blog")], avisos
 
 
+class RespFalsa:
+    def __init__(self, url, status=200, location=None):
+        self.url, self.status, self.ok = url, status, 200 <= status < 300
+        self.headers = {"location": location} if location else {}
+
+    def text(self):
+        return ""
+
+
+class ReqFalsa:
+    """APIRequestContext falso: registra cada URL pedida; responde 200 vazio ou o que estiver em `respostas`."""
+
+    def __init__(self, respostas=None):
+        self.respostas, self.pedidos = respostas or {}, []
+
+    def get(self, url, **kw):
+        assert kw.get("max_redirects") == 0, kw  # o redirecionamento é seguido à mão, para ser conferido
+        self.pedidos.append(url)
+        return self.respostas.get(url) or RespFalsa(url)
+
+    post = get
+
+
+DNS = {"blog.example": "93.184.216.34", "interno.example": "192.168.0.2", "localhost": "127.0.0.1"}
+
+
+def com_dns_falso(f):
+    """Roda f() com o getaddrinfo do corrente trocado pelo DNS acima (IP literal resolve para ele mesmo)."""
+    def getaddrinfo(host, porta, *a, **k):
+        if host == "sumiu.example":
+            raise corrente.socket.gaierror("sem DNS")
+        ip = DNS.get(host, host)
+        familia = corrente.socket.AF_INET6 if ":" in ip else corrente.socket.AF_INET
+        return [(familia, corrente.socket.SOCK_STREAM, 6, "", (ip, porta))]
+
+    original = corrente.socket.getaddrinfo
+    corrente.socket.getaddrinfo = getaddrinfo
+    try:
+        f()
+    finally:
+        corrente.socket.getaddrinfo = original
+
+
+def bloqueado(s, url):
+    try:
+        s.get(url)
+    except Parada as e:
+        assert "bloqueado por segurança" in str(e), e
+        return
+    raise AssertionError(f"não bloqueou {url}")
+
+
+def test_sessao_bloqueia_rede_local_sem_pedir():
+    def f():
+        for url in ["https://127.0.0.1/?ad_id=1", "https://192.168.0.2/?ad_id=1", "https://localhost/?ad_id=1",
+                    "https://interno.example/?ad_id=1", "https://[::1]/?ad_id=1", "http://100.64.0.1/",
+                    "file:///C:/Windows/win.ini"]:
+            req = ReqFalsa()
+            bloqueado(corrente.Sessao(req), url)
+            assert req.pedidos == [], (url, req.pedidos)
+    com_dns_falso(f)
+
+
+def test_sessao_bloqueia_redirecionamento_para_rede_local():
+    def f():
+        req = ReqFalsa({"https://blog.example/": RespFalsa("https://blog.example/", 302, "http://192.168.0.2/admin")})
+        bloqueado(corrente.Sessao(req), "https://blog.example/")
+        assert req.pedidos == ["https://blog.example/"], req.pedidos
+    com_dns_falso(f)
+
+
+def test_sessao_segue_redirecionamento_publico():
+    def f():
+        req = ReqFalsa({"https://blog.example/": RespFalsa("https://blog.example/", 301, "/home")})
+        url, _ = corrente.Sessao(req).get("https://blog.example/")
+        assert url == "https://blog.example/home", url
+        assert req.pedidos == ["https://blog.example/", "https://blog.example/home"], req.pedidos
+    com_dns_falso(f)
+
+
+def test_sessao_nao_segue_redirecionamento_de_post():
+    def f():
+        req = ReqFalsa({"https://blog.example/f/departure": RespFalsa("https://blog.example/f/departure", 302, "/x")})
+        try:
+            corrente.Sessao(req).departure("https://blog.example/f")
+        except Parada:
+            pass
+        else:
+            raise AssertionError("3xx de POST deveria parar")
+        assert req.pedidos == ["https://blog.example/f/departure"], req.pedidos
+    com_dns_falso(f)
+
+
+def test_sessao_com_dns_que_falha_deixa_a_requisicao_dar_o_erro():
+    def f():
+        req = ReqFalsa()
+        corrente.Sessao(req).get("https://sumiu.example/")
+        assert req.pedidos == ["https://sumiu.example/"], req.pedidos
+    com_dns_falso(f)
+
+
 def test_id_da_extensao_bate_com_o_instalador():
     """ID do Chromium: SHA-256 da chave pública (DER), 32 primeiros hex, com 0-f trocados por a-p."""
     chave = json.loads((RAIZ / "extension" / "manifest.json").read_text(encoding="utf-8"))["key"]

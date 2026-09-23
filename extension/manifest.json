@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Ad Blogs Bypass",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Guarda os destinos dos links do encurtador depois que você resolve o captcha.",
   "minimum_chrome_version": "111",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvOI8zl3zbda7JQrLpDoYei2kjxQ+UHYdOtSicGrWzOKd5Ro6ZJklciWg/wIMC5/1sDAiRbWKl92vMplgP6pE5401g7DSJd2X3HPCX1EXG2fkm0++VwjYZdrOGHdwpXiosTUgtEVZJ06AO91y2YukZndNORjadHL3sWySumcfUDx9SJ2+ODXoLeipx68rsUR+CejH9PChwDdpixnQaQwbldG+NK5Cvmr52hTTJohH0MPrY6t08UwHcHm6WVLafsAsWX++Fj+RhrHqehkGCCv31PNdbFaEPBMA3y3EUeWPUo4WglpkluJTAXu+wxu7pMnla5cw86NfR+Gts/jUM2vcRQIDAQAB",

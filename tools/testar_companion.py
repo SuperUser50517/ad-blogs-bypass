@@ -3,8 +3,9 @@
 Rodar: python tools\\testar_companion.py        (contra companion\\dist\\snet-bypass-companion\\snet-bypass-companion.exe)
        python tools\\testar_companion.py --py   (contra companion\\host.py, com o Python do sistema)
 
-Manda um nextUrl em 127.0.0.1:9 (porta fechada; nunca um site real). Esperado: uma única mensagem
-{tipo: "erro", texto: "etapa 1 · 127.0.0.1:9 · …"} e o processo saindo sozinho, sem nenhum byte fora do protocolo.
+Manda um nextUrl em 127.0.0.1:9 (nunca um site real). Esperado: uma única mensagem {tipo: "erro"} com o
+bloqueio de rede local ("etapa 1 · 127.0.0.1:9 · endereço bloqueado por segurança…"), o que também prova que o
+Playwright empacotado inicia, e o processo saindo sozinho, sem nenhum byte fora do protocolo.
 """
 import json
 import struct
@@ -39,7 +40,7 @@ def main():
 
     assert not saida, f"bytes fora do protocolo no stdout: {saida!r}"
     assert len(mensagens) == 1 and mensagens[0]["tipo"] == "erro", mensagens
-    assert mensagens[0]["texto"].startswith("etapa 1 · 127.0.0.1:9 · "), mensagens[0]["texto"]
+    assert mensagens[0]["texto"].startswith("etapa 1 · 127.0.0.1:9 · endereço bloqueado por segurança"), mensagens[0]["texto"]
     print("ok")
 
 

@@ -1,6 +1,8 @@
 """Percorre as trajetórias do encurtador até o destino final."""
+import ipaddress
 import json
 import re
+import socket
 import time
 from datetime import datetime
 from urllib.parse import urljoin, urlparse
@@ -45,6 +47,26 @@ def resultado_action(texto):
 MAX_TRAJETORIAS = 10
 MAX_POSTS = 5
 MAX_CONFIRM = 20
+MAX_REDIRECIONAMENTOS = 10
+
+
+def endereco_bloqueado(url):
+    """True se não é http(s) ou se o host resolve para algum IP fora da internet pública (loopback, rede
+    local, link-local, CGNAT...). O nextUrl vem da página, e cada etapa seguinte vem da resposta de um
+    blog: sem isso, qualquer um deles poderia mandar o companion requisitar a rede local de quem o usa.
+    DNS que falha passa: a própria requisição dará o erro de sempre ("endereço não encontrado")."""
+    try:
+        u = urlparse(url)
+        if u.scheme not in ("http", "https") or not u.hostname:
+            return True
+        infos = socket.getaddrinfo(u.hostname, u.port or 443, proto=socket.IPPROTO_TCP)
+    except (socket.gaierror, UnicodeError):
+        return False
+    except ValueError:  # porta inválida
+        return True
+    # ponytail: DNS rebinding (IP público aqui, privado na conexão do Playwright) passa; fechar exigiria
+    # conectar pelo IP conferido.
+    return any(not ipaddress.ip_address(info[4][0].split("%")[0]).is_global for info in infos)
 
 
 class Sessao:
@@ -76,16 +98,30 @@ class Sessao:
     def _parar(self, o_que, status, texto):
         raise Parada(f"{self.onde} · {o_que}\n{status} {texto[:1000]}")
 
+    def _pedir(self, metodo, url, **kw):
+        """Toda requisição passa aqui: confere o endereço, e o de cada redirecionamento, antes de pedir.
+        Devolve (resposta, url final). POST não segue redirecionamento: o 3xx volta como resposta inesperada."""
+        for _ in range(MAX_REDIRECIONAMENTOS + 1):
+            if endereco_bloqueado(url):
+                alvo = urlparse(url).hostname or url
+                raise Parada(f"{self.onde} · endereço bloqueado por segurança: {alvo} não é um endereço público")
+            resp = (self.req.get if metodo == "GET" else self.req.post)(url, max_redirects=0, **kw)
+            destino = resp.headers.get("location")
+            if metodo != "GET" or not (300 <= resp.status < 400 and destino):
+                return resp, url
+            url = urljoin(url, destino)
+        raise Parada(f"{self.onde} · mais de {MAX_REDIRECIONAMENTOS} redirecionamentos")
+
     def get(self, url, rsc=False, headers=None):
         h = {"RSC": "1"} if rsc else {}
         h.update(headers or {})
-        resp = self.req.get(url, headers=h)
+        resp, url_final = self._pedir("GET", url, headers=h)
         texto = resp.text()
-        self._registrar("GET", url, resp.status, texto, url_final=resp.url)
+        self._registrar("GET", url, resp.status, texto, url_final=url_final)
         if not resp.ok:
             self._parar("GET " + url, resp.status, texto)
-        self._carregar_chunks(resp.url, texto)
-        return resp.url, texto
+        self._carregar_chunks(url_final, texto)
+        return url_final, texto
 
     def _carregar_chunks(self, base, texto):
         mapa = self.mapas.setdefault(urlparse(base).netloc, {})
@@ -94,7 +130,7 @@ class Sessao:
             if url in self._chunks_vistos:
                 continue
             self._chunks_vistos.add(url)
-            resp = self.req.get(url)
+            resp, _ = self._pedir("GET", url)
             js = resp.text()
             self._registrar("GET", url, resp.status, f"<{len(js)} bytes>")
             if not resp.ok:
@@ -107,7 +143,7 @@ class Sessao:
         if not id_:
             raise Parada(f"{self.onde} · action {nome} não encontrada nos chunks de {host}")
         corpo = json.dumps(args)
-        resp = self.req.post(url, data=corpo, headers={
+        resp, _ = self._pedir("POST", url, data=corpo, headers={
             "next-action": id_, "content-type": "text/plain;charset=UTF-8",
             "accept": "text/x-component", "origin": f"https://{host}", "referer": url,
         })
@@ -120,7 +156,7 @@ class Sessao:
 
     def departure(self, frame_url):
         url = urljoin(frame_url, urlparse(frame_url).path.rstrip("/") + "/departure")
-        resp = self.req.post(url, headers={"origin": f"https://{urlparse(url).netloc}", "referer": frame_url})
+        resp, _ = self._pedir("POST", url, headers={"origin": f"https://{urlparse(url).netloc}", "referer": frame_url})
         self._registrar("POST", url, resp.status, resp.text(), url_final=resp.url)
         if not resp.ok:
             self._parar("departure", resp.status, resp.text())
