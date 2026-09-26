@@ -25,8 +25,9 @@ STUB = """
 window.__itens = %s;
 window.chrome = {
   storage: { local: { get: async () => ({ itens: window.__itens }) }, onChanged: { addListener() {} } },
-  runtime: { sendMessage() {} }, tabs: { create() {} },
+  runtime: { sendMessage() {}, getManifest: () => ({ version: "0" }) }, tabs: { create() {} },
 };
+window.fetch = async () => { throw new Error("sem rede"); };  // o aviso de versão nova não consulta o GitHub
 """
 
 

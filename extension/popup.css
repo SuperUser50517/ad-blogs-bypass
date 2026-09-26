@@ -55,6 +55,30 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
 h1 { margin: 0; font-size: 16px; font-weight: 650; letter-spacing: 0.2px; }
 .resumo { margin: 1px 0 0; color: var(--texto-2); font-size: 12px; }
 
+/* ---------- versão nova ---------- */
+.versao-nova {
+  display: flex; align-items: center; gap: 8px;
+  margin: 0 16px 12px; padding: 8px 6px 8px 10px;
+  background: var(--ambar-fundo); border: 1px solid rgba(242, 180, 65, 0.35); border-radius: 10px;
+  font-size: 12.5px;
+}
+.versao-nova[hidden] { display: none; }
+.versao-nova > .ico { color: var(--ambar); }
+.versao-texto { flex: 1; }
+.versao-texto strong { font-weight: 650; }
+.versao-link {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 0; background: none; border: 0;
+  color: var(--ambar); font-weight: 600;
+}
+.versao-link:hover { text-decoration: underline; }
+.versao-link .ico, .versao-link .ico svg { width: 13px; height: 13px; }
+.versao-fechar {
+  flex: none; margin-left: 2px; padding: 0 6px; background: none; border: 0; border-radius: 6px;
+  color: var(--texto-3); font-size: 18px; line-height: 1;
+}
+.versao-fechar:hover { color: var(--texto); background: rgba(242, 180, 65, 0.14); }
+
 /* ---------- barra de ações ---------- */
 .barra {
   display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;

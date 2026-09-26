@@ -17,6 +17,7 @@ const ICONES = {
   alerta: '<circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/>',
   girar: '<path d="M21 12a9 9 0 1 1-6.22-8.56"/>',
   refazer: '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>',
+  subir: '<circle cx="12" cy="12" r="10"/><path d="m16 12-4-4-4 4"/><path d="M12 16V8"/>',
   caixa: '<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>',
 };
 
@@ -211,6 +212,53 @@ function exportar() {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
   avisar(`${prontos().length} ${prontos().length === 1 ? "destino exportado" : "destinos exportados"}`);
 }
+
+// ---------- versão nova ----------
+// Consulta o último release no GitHub no máximo uma vez por dia (a API aceita 60 consultas/h sem login).
+// Falha de rede não grava nada: tenta de novo na próxima abertura, sem erro na tela.
+const API_RELEASE = "https://api.github.com/repos/joaomgabaldi/ad-blogs-bypass/releases/latest";
+const PAGINA_RELEASE = "https://github.com/joaomgabaldi/ad-blogs-bypass/releases/latest";
+const INTERVALO_VERSAO_MS = 24 * 60 * 60 * 1000;
+let versao = {}; // { verificado, ultima, dispensada }
+
+function maisNova(a, b) { // por número: 2.0.10 > 2.0.9
+  const x = a.split(".").map(Number), y = b.split(".").map(Number);
+  for (let i = 0; i < Math.max(x.length, y.length); i++) {
+    const d = (x[i] || 0) - (y[i] || 0);
+    if (d) return d > 0;
+  }
+  return false;
+}
+
+function mostrarVersao() {
+  const nova = versao.ultima && versao.ultima !== versao.dispensada
+    && maisNova(versao.ultima, chrome.runtime.getManifest().version);
+  $("#versao-numero").textContent = nova ? versao.ultima : "";
+  $("#versao-nova").hidden = !nova;
+}
+
+async function verificarVersao() {
+  versao = (await chrome.storage.local.get("versao")).versao || {};
+  if (!(Date.now() - (versao.verificado || 0) < INTERVALO_VERSAO_MS)) {
+    try {
+      const r = await fetch(API_RELEASE, { headers: { accept: "application/vnd.github+json" } });
+      const tag = r.ok ? String((await r.json()).tag_name).replace(/^v/, "") : "";
+      if (/^\d+(\.\d+)*$/.test(tag)) {
+        versao = { ...versao, verificado: Date.now(), ultima: tag };
+        await chrome.storage.local.set({ versao });
+      }
+    } catch (e) {}
+  }
+  mostrarVersao();
+}
+
+$(".versao-link").addEventListener("click", () => abrir(PAGINA_RELEASE));
+$("#fechar-versao").addEventListener("click", () => {
+  versao = { ...versao, dispensada: versao.ultima };
+  chrome.storage.local.set({ versao });
+  mostrarVersao();
+});
+verificarVersao();
 
 // ---------- ligações ----------
 document.querySelectorAll("[data-icone]").forEach((alvo) => {
