@@ -16,7 +16,21 @@ _CHAVE = re.compile('automaticGateKey' + _Q + ':' + _Q + r'([^"\\]+)')
 
 
 class Parada(Exception):
-    """Resposta inesperada: a corrente para aqui."""
+    """Resposta inesperada: a corrente para aqui. `definitivo`: tentar de novo com o mesmo link não adianta."""
+
+    def __init__(self, texto, definitivo=False):
+        super().__init__(texto)
+        self.definitivo = definitivo
+
+
+# Recusas conhecidas (início do "message" do site -> texto do popup). O texto do site fala com quem está
+# na página dele ("Recarregue a página"); aqui o conserto é sempre um captcha novo.
+_RECUSAS = {
+    "Este fluxo já foi finalizado.": "Este link já foi resolvido até o fim. Para obter o destino de novo, "
+                                     "abra o link do encurtador e resolva o captcha outra vez.",
+    "Sessão de acesso não encontrada.": "A sessão deste link se perdeu. "
+                                        "Abra o link do encurtador e resolva o captcha outra vez.",
+}
 
 
 def chunks(texto):
@@ -64,7 +78,7 @@ def endereco_bloqueado(url):
         return False
     except ValueError:  # porta inválida
         return True
-    # ponytail: DNS rebinding (IP público aqui, privado na conexão do Playwright) passa; fechar exigiria
+    # ponytail: DNS rebinding (IP público aqui, privado na conexão do urllib) passa; fechar exigiria
     # conectar pelo IP conferido.
     return any(not ipaddress.ip_address(info[4][0].split("%")[0]).is_global for info in infos)
 
@@ -151,6 +165,12 @@ class Sessao:
         self._registrar("POST", url, resp.status, texto, action=nome, corpo=corpo, url_final=resp.url)
         r = resultado_action(texto) if resp.ok else None
         if r is None or r.get("ok") is False or r.get("allowed") is False:
+            mensagem = r.get("message") if r else None
+            if isinstance(mensagem, str) and mensagem.strip():  # o site já explicou: sem o JSON cru
+                for inicio, amigavel in _RECUSAS.items():
+                    if mensagem.startswith(inicio):
+                        raise Parada(f"{self.onde} · {amigavel}", definitivo=True)
+                raise Parada(f"{self.onde} · {mensagem.strip()}")
             self._parar(nome, resp.status, texto)
         return r
 

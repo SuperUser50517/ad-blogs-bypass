@@ -4,7 +4,7 @@
 ;
 ; O que ele faz:
 ;   1. copia a pasta do snet-bypass-companion.exe (saída do PyInstaller
-;      --onedir: o exe + _internal\ com o Python e o driver do Playwright) para a
+;      --onedir: o exe + _internal\ com o Python) para a
 ;      pasta de instalação;
 ;   2. gera o host manifest do Native Messaging apontando para o exe instalado
 ;      (o caminho só é conhecido na hora da instalação — por isso não é possível

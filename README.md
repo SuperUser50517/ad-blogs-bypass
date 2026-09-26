@@ -57,8 +57,8 @@ Para gerar o instalador a partir do código:
 1. Instale:
    - [Python](https://www.python.org/downloads/) 3.10 ou mais recente (desenvolvido no 3.14), com a
      opção "Add python.exe to PATH";
-   - as bibliotecas: `python -m pip install playwright pyinstaller` (o componente usa só as chamadas HTTP
-     do Playwright — não é preciso baixar navegadores com `playwright install`);
+   - o PyInstaller: `python -m pip install pyinstaller` (o componente usa só a biblioteca padrão do
+     Python);
    - o [Inno Setup 6](https://jrsoftware.org/isdl.php).
 2. Na pasta do projeto, rode:
    ```powershell
@@ -78,8 +78,8 @@ O ID da extensão é fixo (`gdffnebealemedjembikfbagoijgmeij`), definido pelo ca
 ## Testes
 
 ```powershell
-python -m pip install playwright
-python -m playwright install chromium   # só para test_extensao.py e as ferramentas de tools\
+python -m pip install playwright        # só para test_extensao.py e as ferramentas de tools\
+python -m playwright install chromium
 python tests\test_companion.py
 python tests\test_extensao.py
 ```

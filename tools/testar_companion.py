@@ -5,7 +5,7 @@ Rodar: python tools\\testar_companion.py        (contra companion\\dist\\snet-by
 
 Manda um nextUrl em 127.0.0.1:9 (nunca um site real). Esperado: uma única mensagem {tipo: "erro"} com o
 bloqueio de rede local ("etapa 1 · 127.0.0.1:9 · endereço bloqueado por segurança…"), o que também prova que o
-Playwright empacotado inicia, e o processo saindo sozinho, sem nenhum byte fora do protocolo.
+exe empacotado inicia, e o processo saindo sozinho, sem nenhum byte fora do protocolo.
 """
 import json
 import struct

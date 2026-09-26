@@ -78,7 +78,7 @@ function resolver(item) {
       else atualizar(item.id, { status: "erro", erro: "O destino recebido não é um endereço válido." });
     } else if (msg.tipo === "erro") {
       terminou = true;
-      atualizar(item.id, { status: "erro", erro: msg.texto });
+      atualizar(item.id, { status: "erro", erro: msg.texto, definitivo: msg.definitivo === true });
     }
   });
   porta.onDisconnect.addListener(() => {
@@ -135,7 +135,7 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
   } else if (msg.tipo === "tentar") {
     chrome.storage.local.get("itens").then(({ itens = [] }) => {
       const item = itens.find((i) => i.id === msg.id);
-      if (!item || item.status !== "erro" || Date.now() - item.capturado >= VALIDADE_MS) return;
+      if (!item || item.status !== "erro" || item.definitivo || Date.now() - item.capturado >= VALIDADE_MS) return;
       atualizar(item.id, { status: "resolvendo", progresso: null, erro: null }).then(() => resolver(item));
     });
   } else if (msg.tipo === "apagar") {

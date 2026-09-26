@@ -156,7 +156,7 @@ function cartao(item) {
     });
     c.append(erro);
     const restante = VALIDADE_MS - (Date.now() - item.capturado);
-    if (restante > 0) {
+    if (restante > 0 && !item.definitivo) { // definitivo: o site já recusou este link; só um captcha novo resolve
       const tentar = el("button", "tentar");
       tentar.type = "button";
       tentar.append(icone("refazer"), el("span", null, "Tentar de novo"),

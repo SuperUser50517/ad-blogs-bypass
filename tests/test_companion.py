@@ -195,39 +195,111 @@ def test_host_responde_erro_localizado():
     saida.seek(0)
     assert ler_mensagem(saida) == {
         "tipo": "erro", "texto": "etapa 2 · shufflepost.com · post 20 · unlockAutomaticReadingAction",
+        "definitivo": False,
     }
 
 
-def test_host_responde_falha_ao_iniciar():
+def test_host_avisa_erro_definitivo():
     import io
-    import types
 
-    import host
+    from host import atender, escrever_mensagem, ler_mensagem
 
-    saida = io.BytesIO()
-    antes = sys.modules.get("playwright.sync_api"), sys.stdout
-    sys.modules["playwright.sync_api"] = None  # o import falha como se o playwright não estivesse instalado
-    sys.stdout = types.SimpleNamespace(buffer=saida)
-    try:
-        host.main()
-    finally:
-        if antes[0] is None:
-            del sys.modules["playwright.sync_api"]
-        else:
-            sys.modules["playwright.sync_api"] = antes[0]
-        sys.stdout = antes[1]
+    def resolver(next_url, ua, progresso):
+        raise Parada("etapa 1 · blog · já foi", definitivo=True)
+
+    entrada, saida = io.BytesIO(), io.BytesIO()
+    escrever_mensagem(entrada, {"nextUrl": "https://blog/?ad_id=1", "ua": "UA"})
+    entrada.seek(0)
+    atender(entrada, saida, resolver)
     saida.seek(0)
-    msg = host.ler_mensagem(saida)
-    assert msg.keys() == {"tipo", "texto"} and msg["tipo"] == "erro", msg
-    assert msg["texto"].startswith("Falha ao iniciar: "), msg
-    assert host.ler_mensagem(saida) is None  # uma resposta só
+    assert ler_mensagem(saida) == {"tipo": "erro", "texto": "etapa 1 · blog · já foi", "definitivo": True}
 
 
-def test_resumir_erro_de_rede_sem_call_log():
+def servidor_local():
+    """Servidor HTTP em 127.0.0.1 numa thread: /entrar redireciona e grava um cookie, /eco devolve o que recebeu."""
+    import threading
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+
+    class Eco(BaseHTTPRequestHandler):
+        def log_message(self, *a):
+            pass
+
+        def responder(self, status, corpo=b"", **extras):
+            self.send_response(status)
+            for k, v in extras.items():
+                self.send_header(k.replace("_", "-"), v)
+            self.send_header("Content-Type", "text/plain; charset=utf-8")
+            self.send_header("Content-Length", str(len(corpo)))
+            self.end_headers()
+            self.wfile.write(corpo)
+
+        def do_GET(self):
+            if self.path == "/entrar":
+                self.responder(302, Location="/depois", Set_Cookie="sessao=abc; Path=/")
+            elif self.path == "/eco":
+                self.responder(200, json.dumps({"cookie": self.headers.get("Cookie"),
+                                                "ua": self.headers.get("User-Agent")}).encode("utf-8"))
+            else:
+                self.responder(404, "não há".encode("utf-8"))
+
+        def do_POST(self):
+            corpo = self.rfile.read(int(self.headers["Content-Length"]))
+            self.responder(200, json.dumps({"corpo": corpo.decode("utf-8"),
+                                            "action": self.headers.get("next-action")}).encode("utf-8"))
+
+    srv = HTTPServer(("127.0.0.1", 0), Eco)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    return srv, f"http://127.0.0.1:{srv.server_port}"
+
+
+def test_req_nao_segue_redirecionamento_e_guarda_cookie():
+    """As duas coisas que o contexto do Playwright fazia sozinho: sem cookie o site responde
+    "Sessão de acesso não encontrada"; seguir o 3xx pularia a checagem de rede local do corrente.py."""
+    from host import Req
+
+    srv, base = servidor_local()
+    try:
+        req = Req("UA-teste")
+        r = req.get(base + "/entrar", max_redirects=0)
+        assert (r.status, r.ok, r.headers.get("location")) == (302, False, "/depois"), (r.status, r.headers)
+        assert r.url == base + "/entrar", r.url  # o corrente.py lê resp.url em action() e departure()
+        eco = json.loads(req.get(base + "/eco", max_redirects=0).text())
+        assert eco == {"cookie": "sessao=abc", "ua": "UA-teste"}, eco
+        r = req.post(base + "/eco", max_redirects=0, data='["x"]', headers={"next-action": "id1"})
+        assert r.ok and json.loads(r.text()) == {"corpo": '["x"]', "action": "id1"}, r.text()
+        assert r.url == base + "/eco", r.url
+        r = req.get(base + "/nada", max_redirects=0)
+        assert (r.status, r.ok, r.text()) == (404, False, "não há"), (r.status, r.text())
+    finally:
+        srv.shutdown()
+
+
+def test_resumir_conexao_recusada():
+    import socket
+
+    from host import Req, resumir
+
+    with socket.socket() as livre:  # porta que acabou de ficar livre: ninguém escuta nela
+        livre.bind(("127.0.0.1", 0))
+        porta = livre.getsockname()[1]
+    try:
+        Req("UA").get(f"http://127.0.0.1:{porta}/", max_redirects=0)
+    except Exception as e:
+        assert resumir(e) == "falha de rede: conexão recusada", resumir(e)
+    else:
+        raise AssertionError("deveria falhar")
+
+
+def test_resumir_erros_de_rede():
+    import socket
+    import urllib.error
+
     from host import resumir
 
-    e = Exception(": connect ECONNREFUSED 127.0.0.1:9\nCall log:\n  - → GET x")
-    assert resumir(e) == "falha de rede: conexão recusada", resumir(e)
+    assert resumir(urllib.error.URLError(socket.gaierror(11001, "getaddrinfo failed"))) \
+        == "falha de rede: endereço não encontrado"
+    assert resumir(TimeoutError("timed out")) == "falha de rede: tempo de resposta esgotado"
+    assert resumir(ConnectionResetError(10054, "x")) == "falha de rede: conexão interrompida"
 
 
 def test_resumir_erro_comum_mantem_tipo_e_primeira_linha():
@@ -235,7 +307,7 @@ def test_resumir_erro_comum_mantem_tipo_e_primeira_linha():
 
     e = KeyError("post")
     assert resumir(e) == "KeyError: 'post'", resumir(e)
-    e = ValueError("formato inesperado\nCall log:\n  - → GET x")
+    e = ValueError("formato inesperado\nsegunda linha")
     assert resumir(e) == "ValueError: formato inesperado", resumir(e)
 
 
@@ -259,12 +331,12 @@ def test_percorrer_avisa_o_progresso():
 
 
 class RespFalsa:
-    def __init__(self, url, status=200, location=None):
-        self.url, self.status, self.ok = url, status, 200 <= status < 300
+    def __init__(self, url, status=200, location=None, texto=""):
+        self.url, self.status, self.ok, self.texto = url, status, 200 <= status < 300, texto
         self.headers = {"location": location} if location else {}
 
     def text(self):
-        return ""
+        return self.texto
 
 
 class ReqFalsa:
@@ -357,6 +429,53 @@ def test_sessao_com_dns_que_falha_deixa_a_requisicao_dar_o_erro():
         corrente.Sessao(req).get("https://sumiu.example/")
         assert req.pedidos == ["https://sumiu.example/"], req.pedidos
     com_dns_falso(f)
+
+
+def recusa(corpo, status=200):
+    """Parada que a Sessao levanta quando a getRecommendedPostAction responde `corpo`."""
+    url = "https://blog.example/"
+    resp = RespFalsa(url, status, texto=f'0:{{"a":"$@1"}}\n1:{corpo}' if status == 200 else corpo)
+    s = corrente.Sessao(ReqFalsa({url: resp}))
+    s.etapa = "etapa 1 · blog.example"
+    s.mapas = {"blog.example": {"getRecommendedPostAction": "id1"}}
+    erro = []
+
+    def f():
+        try:
+            s.action("getRecommendedPostAction", url, [])
+        except Parada as e:
+            erro.append(e)
+    com_dns_falso(f)
+    assert erro, "deveria parar"
+    return erro[0]
+
+
+def test_recusa_de_fluxo_finalizado_vira_mensagem_amigavel_e_definitiva():
+    e = recusa('{"ok":false,"message":"Este fluxo já foi finalizado.","href":"/"}')
+    assert str(e) == ("etapa 1 · blog.example · Este link já foi resolvido até o fim. Para obter o destino de novo, "
+                      "abra o link do encurtador e resolva o captcha outra vez."), str(e)
+    assert e.definitivo
+
+
+def test_recusa_de_sessao_perdida_vira_mensagem_amigavel_e_definitiva():
+    e = recusa('{"ok":false,"message":"Sessão de acesso não encontrada. Recarregue a página.","href":"/"}')
+    assert str(e) == ("etapa 1 · blog.example · A sessão deste link se perdeu. "
+                      "Abra o link do encurtador e resolva o captcha outra vez."), str(e)
+    assert e.definitivo
+
+
+def test_recusa_desconhecida_mostra_o_texto_do_site_sem_json():
+    e = recusa('{"ok":false,"message":"Algo novo aconteceu.","href":"/"}')
+    assert str(e) == "etapa 1 · blog.example · Algo novo aconteceu.", str(e)
+    assert not e.definitivo
+
+
+def test_resposta_sem_message_mantem_o_detalhe_tecnico():
+    e = recusa("<html>erro interno</html>", status=500)
+    assert str(e).startswith("etapa 1 · blog.example · getRecommendedPostAction\n500 <html>"), str(e)
+    assert not e.definitivo
+    e = recusa('{"ok":false}')
+    assert "getRecommendedPostAction" in str(e) and not e.definitivo, str(e)
 
 
 def test_id_da_extensao_bate_com_o_instalador():

@@ -1,14 +1,11 @@
-# Empacota o companion (host.py + corrente.py + Playwright) numa pasta com
+# Empacota o companion (host.py + corrente.py) numa pasta com
 # snet-bypass-companion.exe (PyInstaller --onedir), para quem instala nao
 # precisar de Python. Roda na maquina do desenvolvedor; o que se distribui e a
 # pasta dist\snet-bypass-companion\ inteira, via installer\build-installer.ps1.
 #
 # Uso: .\build.ps1
-# Requer: Python 3 com playwright instalado (o PyInstaller e instalado aqui se faltar).
-#
-# O driver do Playwright (node.exe + pacote JS, ~100 MB) entra pelo hook que o
-# proprio playwright traz (hook-playwright.sync_api: collect_data_files). Nenhum
-# navegador vai junto: o companion so usa p.request (HTTP), nunca abre janela.
+# Requer: Python 3 (o PyInstaller e instalado aqui se faltar). O companion so
+# usa a biblioteca padrao (urllib): nenhuma dependencia externa entra no pacote.
 #
 # Arquivo em ASCII puro de proposito: o Windows PowerShell 5 le .ps1 sem BOM
 # como ANSI, e acento em string sairia trocado.
@@ -45,9 +42,7 @@ try {
   Write-Host "[3/3] Conferindo o resultado..."
   $pasta = Join-Path $dist $nome
   $exe = Join-Path $pasta "$nome.exe"
-  $node = Join-Path $pasta "_internal\playwright\driver\node.exe"
   if (-not (Test-Path $exe)) { throw "$exe nao foi gerado." }
-  if (-not (Test-Path $node)) { throw "O driver do Playwright nao entrou no pacote ($node ausente)." }
 
   $mb = [math]::Round(((Get-ChildItem $pasta -Recurse -File | Measure-Object Length -Sum).Sum) / 1MB, 1)
   Write-Host ""
